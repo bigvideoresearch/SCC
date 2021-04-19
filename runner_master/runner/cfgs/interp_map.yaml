@@ -1,0 +1,7 @@
+interp_map:
+    nearest: 0
+    lanczos: 1
+    bilinear: 2
+    bicubic: 3
+    box: 4
+    hamming: 5

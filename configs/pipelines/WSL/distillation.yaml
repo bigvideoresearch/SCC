@@ -1,0 +1,18 @@
+pipeline: OfflineSelfContainedConfPipeline
+pipeline_setting: OfflineSCC_confpower${SCC_setting.conf_power}_confpolicy${SCC_setting.conf_policy}
+finetune: true
+
+SCC_setting:
+    label_sharpenT: 1  # 0: one-hot pseudo labels, 1: original pseudo labels
+    conf_power: 2 # power on confidence, prefer 2
+    conf_policy: Distillation # ConfvsOneMinusConf, ConstantConf_0.5, Distillation
+
+data:
+    train:
+        dataset:
+            name: PseudoDataset
+
+scheduler:
+    lr:
+        kwargs:
+            warmup_steps: 0

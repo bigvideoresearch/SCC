@@ -1,0 +1,11 @@
+pipeline: ReWeightLearnPipeline
+pipeline_setting: Mixup
+
+data:
+    train:
+        transform_batch:
+            Mixup:
+                alpha: 0.5
+                keepleft: true
+                keys_to_transform: ['data', 'soft_label', 'sample_weight']
+

@@ -1,0 +1,84 @@
+pipeline: OnlineSelfContainedConfPipeline
+pipeline_setting: OnlineSCC_confpower${SCC_setting.conf_power}_confpolicy${SCC_setting.conf_policy}
+finetune: true
+
+SCC_setting:
+    label_sharpenT: 1  # 0: one-hot pseudo labels, 1: original pseudo labels
+    conf_power: 2 # power on confidence, prefer 2
+    conf_policy: ConfvsOneMinusConf # ConfvsOneMinusConf, ConstantConf_0.5, Distillation
+
+data:
+    train:
+        dataset:
+            name: OnlineLabelerDataset
+        transform_aux_image: '@{AuxStandard}'
+    valid:
+        dataset:
+            name: OnlineLabelerDataset
+        transform_batch:
+            BatchNormalize:
+                keys_to_transform: [data, aux_data]
+        transform_aux_image: '@{AuxStandard}'
+
+AuxStandard:
+    Convert:
+        mode: RGB
+    ResizeBeforeCrop:
+        center_crop_size: '@{image_size}'
+        pre_size: '@{image_size}'
+    CenterCrop:
+        size: '@{image_size}'
+    ToTensor: {}
+
+network:
+    verbose: false
+    names: [main, teacher]
+    main:
+        name: gluon.resnet50_v1d
+        kwargs:
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        init:
+            load_model_zoo:
+                use: '@{pretrained}'
+                model_name: '@{network.main.name}'
+                load_from: disk
+                version: 1.1.1
+            all_half_except_bn:
+                use: '@{half}'
+                must_half_in: true
+                must_float_out: true
+            all_bn_to_syncbn:
+                use: '@{syncbn}'
+                num_groups: 1
+            load_ckpt:
+                use: '@{finetune}'
+                network_name: main
+                ckpt: '@{load_model_path}'
+    teacher:
+        name: gluon.resnet50_v1d
+        kwargs:
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        init:
+            load_model_zoo:
+                use: '@{pretrained}'
+                model_name: '@{network.main.name}'
+                load_from: disk
+                version: 1.1.1
+            all_half_except_bn:
+                use: '@{half}'
+                must_half_in: true
+                must_float_out: true
+            all_bn_to_syncbn:
+                use: '@{syncbn}'
+                num_groups: 1
+            load_ckpt:
+                use: '@{finetune}'
+                network_name: main
+                ckpt: '@{load_model_path}'
+
+scheduler:
+    lr:
+        kwargs:
+            warmup_steps: 0

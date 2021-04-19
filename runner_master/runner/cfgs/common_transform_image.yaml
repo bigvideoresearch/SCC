@@ -1,0 +1,108 @@
+#!include interp_map.yaml
+
+interpolation: '@{interp_map.bilinear}'
+
+common_transform_image:
+
+    TrainImageNet:
+        Convert:
+            mode: RGB
+        RandomResizedCrop:
+            size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        ColorJitter:
+            brightness: 0.4
+            contrast: 0.4
+            saturation: 0.4
+        ToTensor: {}
+
+    TrainSingleColor:
+        Convert:
+            mode: RGB
+        RandomResizedCrop:
+            size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        ToTensor: {}
+
+    TrainSingleScale:
+        Convert:
+            mode: RGB
+        ResizeBeforeCrop:
+            center_crop_size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomCrop:
+            size: '@{image_size}'
+        RandomHorizontalFlip: {}
+        ColorJitter:
+            brightness: 0.4
+            contrast: 0.4
+            saturation: 0.4
+        ToTensor: {}
+
+    TrainSingleColorScale:
+        Convert:
+            mode: RGB
+        ResizeBeforeCrop:
+            center_crop_size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomCrop:
+            size: '@{image_size}'
+        RandomHorizontalFlip: {}
+        ToTensor: {}
+
+    TrainAutoAugmentImageNetPolicy:
+        Convert:
+            mode: RGB
+        RandomResizedCrop:
+            size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        ImageNetPolicy: {}
+        ToTensor: {}
+
+    TrainAutoAugmentEfficientNetPolicy:
+        Convert:
+            mode: RGB
+        RandomResizedCrop:
+            size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        EffcientNetPolicy: {}
+        ToTensor: {}
+
+    TrainRandAugment:
+        Convert:
+            mode: RGB
+        RandomResizedCrop:
+            size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        RandAugment:
+            num_ops: 2
+            magnitude_level: 9
+        ToTensor: {}
+
+    TrainRandAugmentResizedCrop:
+        Convert:
+            mode: RGB
+        RandAugmentResizedCrop:
+            size: '@{image_size}'
+            level: 9
+            interpolation: '@{interpolation}'
+        RandomHorizontalFlip: {}
+        RandAugment:
+            num_ops: 2
+            magnitude_level: 9
+        ToTensor: {}
+
+    ValidImageNet:
+        Convert:
+            mode: RGB
+        ResizeBeforeCrop:
+            center_crop_size: '@{image_size}'
+            interpolation: '@{interpolation}'
+        CenterCrop:
+            size: '@{image_size}'
+        ToTensor: {}

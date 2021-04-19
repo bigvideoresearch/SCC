@@ -1,0 +1,105 @@
+#!include learn_pipeline_v2.yaml
+
+setting: gpu${num_gpus}_batch${local_batch_size}_${scheduler.lr.name}${lr}_epoch${num_epochs}
+pipeline_setting: baseline_pretrain${pretrained}
+run_name: ${dataset_name}/${network.main.name}/${setting}/${pipeline_setting}
+
+seed: 1024
+num_gpus: 8
+local_batch_size: 32
+lr: 0.1
+num_epochs: 120
+
+pretrained: false
+
+metric:
+    names: [train, valid]
+    train:
+        metric_names: [ce, top1, top5]
+        cache_size: 20
+    valid:
+        metric_names: [ce, top1, top5]
+        cache_size: null
+    loss: ce
+    critical_metric_names: [valid_top1, valid_top5]
+
+    speeds:
+        ce: fast
+        top1: fast
+        top5: fast
+    polars:
+        ce: min
+        top1: max
+        top5: max
+    ruler: ClassifyRuler
+
+network:
+    verbose: false
+    names: [main]
+    main:
+        name: gluon.resnet50_v1b
+        kwargs:
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        init:
+            load_model_zoo:
+                use: '@{pretrained}'
+                model_name: '@{network.main.name}'
+                load_from: disk
+                version: 1.1.1
+            all_half_except_bn:
+                use: '@{half}'
+                must_half_in: true
+                must_float_out: true
+            all_bn_to_syncbn:
+                use: '@{syncbn}'
+                num_groups: 1
+            load_ckpt:
+                use: false
+                network_name: main
+                ckpt: ''
+
+optimizer:
+    verbose: false
+    names: [main]
+    main:
+        name: SGD
+        kwargs:
+            lr: 0 # 交给scheduler控制
+            weight_decay: 0.0001
+            momentum: 0.9
+            nesterov: true
+        param_groups: bias_bn_no_decay
+        half_kwargs:
+            check_nan: false
+            loss_scale: 512
+            loss_scale_down_multiplier: 2
+
+scheduler:
+    verbose: false
+    names: [lr]
+    lr:
+        name: CosineScheduler
+        unit_length: epoch
+        kwargs:
+            base_value: '@{lr}'
+            total_steps: '@{num_epochs}'
+            warmup_steps: 5
+
+record:
+    names: [train, eval]
+    train:
+        window_size: 100
+        sync_cuda: false
+    eval:
+        window_size: 100
+        sync_cuda: false
+
+report:
+    plain_freq: 10
+    curve_freq: 10
+    lr_axis_factor: 1000000
+
+
+save:
+    max_save_history:

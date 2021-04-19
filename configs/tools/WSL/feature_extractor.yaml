@@ -1,0 +1,80 @@
+pipeline: ExtractFeaturePipeline
+pipeline_setting: FeatureExtractor
+setting: gpu${num_gpus}_batch${local_batch_size}_${scheduler.lr.name}${lr}_epoch${num_epochs}
+run_name: ${dataset_name}/${network.feature_net.name}/${setting}/${pipeline_setting}
+
+seed: 1024
+num_gpus: 32
+local_batch_size: 32
+
+pretrained: false
+eval_names: [train]
+
+data:
+    train:
+        dataset:
+            name: ImgnameDatasetV2
+        shuffle: false
+        transform_image: '@{AuxStandard}'
+
+AuxStandard:
+    Convert:
+        mode: RGB
+    ResizeBeforeCrop:
+        center_crop_size: '@{image_size}'
+        pre_size: '@{image_size}'
+    CenterCrop:
+        size: '@{image_size}'
+    ToTensor: {}
+
+network:
+    names: [feature_net, label_net]
+    feature_net:
+        name: gluon.resnet50_v1d
+        kwargs:
+            __clear__: true
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        modify:
+            use: true
+            method: [gem, l2n]
+            gem:
+                p: 1.1
+        init:
+            load_ckpt_unstrict:
+                use: true
+                network_name: main
+                ckpt: '@{load_model_path}'
+    label_net:
+        name: gluon.resnet50_v1d
+        kwargs:
+            __clear__: true
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        modify:
+            use: false
+            method: none
+        init:
+            load_ckpt:
+                use: true
+                network_name: main
+                ckpt: '@{load_model_path}'
+
+metric:
+    train:
+        metric_names: [ce, top1, top5]
+    valid:
+        metric_names: [ce, top1, top5]
+    loss: ce
+    critical_metric_names: [train_top1]
+    speeds:
+        ce: fast
+    polars:
+        ce: min
+
+record:
+    __clear__: true
+    names: [train]
+    train:
+        window_size: 100
+        sync_cuda: false

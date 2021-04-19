@@ -1,0 +1,202 @@
+#!include common_transform_image.yaml
+#!include dataset/imagenet_sh.yaml
+
+py_file: main.py
+pipeline: LearnPipelineV2
+ignore_warning: true
+
+wait_tensorboard: 5
+runner: slurm # slurm / local
+mp_method: spawn
+
+runner_extra_args: ''
+gen_run_file: run.sh
+pg_run: true
+
+seed: 1024
+num_gpus: 32
+local_batch_size: 32
+lr: 0.4
+image_size: 224
+num_epochs: 200
+num_classes: 1000
+num_sub_epochs: 1
+resume: ../checkpoint/latest.pth
+eval_names: [valid]
+half: false
+syncbn: false
+pretrained: false
+
+setting: gpu${num_gpus}_batch${local_batch_size}_coslr${lr}_epoch${num_epochs}_half${half}
+run_name: ${pipeline}/${network.main.name}/${setting}/0105
+
+data:
+    verbose: false
+    loader_class: runner
+    names: [train, valid]
+    maxlen: null
+    dummy_read: false
+    dummy_size: null
+    num_workers: 2
+    train:
+        use_infolist: false
+        imglist_type: ListImglist
+        imglist_path: '@{imagenet.train.imglist_path}'
+        root: '@{imagenet.train.root}'
+        reader: DirectReader
+        skip_broken: false
+        dataset:
+            name: ImglistDatasetV2
+            kwargs:
+                maxlen: '@{data.maxlen}'
+                dummy_read: '@{data.dummy_read}'
+                dummy_size: '@{data.dummy_size}'
+        num_sub_epochs: '@{num_sub_epochs}'
+        shuffle: true
+        pin_memory: false
+        drop_last: false
+        finegrain_factor: 1000
+        seed: '@{seed}'
+        local_batch_size: '@{local_batch_size}'
+        num_workers: '@{data.num_workers}'
+        transform_image: '@@{common_transform_image.TrainImageNet}'
+        transform_extra:
+            SmoothSingleLabel:
+                epsilon: 0.1
+                num_classes: '@{num_classes}'
+        transform_collate:
+            DefaultCollate: {}
+        transform_batch:
+            TensorCuda: {}
+            BatchFancyPCA: {}
+            BatchNormalize:
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+            Mixup:
+                alpha: 0.2
+                keepleft: true
+    valid:
+        use_infolist: false
+        imglist_type: ListImglist
+        imglist_path: '@{imagenet.valid.imglist_path}'
+        root: '@{imagenet.valid.root}'
+        reader: DirectReader
+        skip_broken: false
+        dataset:
+            name: ImglistDatasetV2
+            kwargs:
+                maxlen: '@{data.maxlen}'
+                dummy_read: '@{data.dummy_read}'
+                dummy_size: '@{data.dummy_size}'
+        num_sub_epochs: 1
+        shuffle: false
+        pin_memory: false
+        drop_last: false
+        finegrain_factor: 1000
+        seed: '@{seed}'
+        local_batch_size: '@{local_batch_size}'
+        num_workers: '@{data.num_workers}'
+        transform_image: '@@{common_transform_image.ValidImageNet}'
+        transform_extra:
+            SmoothSingleLabel:
+                epsilon: 0.1
+                num_classes: '@{num_classes}'
+        transform_collate:
+            DefaultCollate: {}
+        transform_batch:
+            TensorCuda: {}
+            BatchNormalize:
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+
+network:
+    verbose: false
+    names: [main]
+    main:
+        name: gluon.resnet50_v1d
+        kwargs:
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        init:
+            load_model_zoo:
+                use: '@{pretrained}'
+                model_name: '@{network.main.name}'
+                load_from: disk
+                version: 1.1.1
+            all_half_except_bn:
+                use: '@{half}'
+                must_half_in: true
+                must_float_out: true
+            all_bn_to_syncbn:
+                use: '@{syncbn}'
+                num_groups: 1
+            load_ckpt:
+                use: false
+                network_name: main
+                ckpt: ''
+
+optimizer:
+    verbose: false
+    names: [main]
+    main:
+        name: SGD
+        kwargs:
+            lr: 0 # 交给scheduler控制
+            weight_decay: 0.0001
+            momentum: 0.9
+            nesterov: true
+        param_groups: bias_bn_no_decay
+        half_kwargs:
+            check_nan: false
+            loss_scale: 512
+            loss_scale_down_multiplier: 2
+
+scheduler:
+    verbose: false
+    names: [lr]
+    lr:
+        name: CosineScheduler
+        unit_length: epoch
+        kwargs:
+            base_value: '@{lr}'
+            total_steps: '@{num_epochs}'
+            warmup_steps: 5
+
+metric:
+    names: [train, valid]
+    train:
+        metric_names: [sce, top1, top5]
+        cache_size: 20
+    valid:
+        metric_names: [sce, top1, top5]
+        cache_size: null
+    loss: sce
+    critical_metric_names: [valid_top1, valid_top5]
+
+    speeds:
+        sce: fast
+        top1: fast
+        top5: fast
+    polars:
+        sce: min
+        top1: max
+        top5: max
+    ruler: ClassifyRuler
+
+record:
+    names: [train, eval]
+    train:
+        window_size: 100
+        sync_cuda: false
+    eval:
+        window_size: 100
+        sync_cuda: false
+
+report:
+    plain_freq: 10
+    curve_freq: 10
+    lr_axis_factor: 1000000
+
+
+save:
+    max_save_history: 5 # if set None, then keep all the checkpoints

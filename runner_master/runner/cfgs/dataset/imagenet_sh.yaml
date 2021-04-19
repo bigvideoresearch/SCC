@@ -1,0 +1,7 @@
+imagenet:
+    train:
+        root: ../data/images/train
+        imglist_path: ../data/images/meta/train.txt
+    valid:
+        root: ../data/images/val
+        imglist_path: ../data/images/meta/val.txt

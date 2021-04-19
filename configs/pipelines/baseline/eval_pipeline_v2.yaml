@@ -1,0 +1,74 @@
+pipeline: EvalPiplineV20
+pg_run: false
+eval_names: [valid]
+
+setting: gpu${num_gpus}_batch${local_batch_size}_${scheduler.lr.name}${lr}_epoch${num_epochs}
+run_name: ${dataset_name}/${network.main.name}/${setting}/${pipeline_setting}
+
+seed: 1024
+num_gpus: 1
+local_batch_size: 32
+
+pretrained: false
+
+data:
+    train:
+        dataset:
+            name: ImagenameDataset
+        shuffle: false
+        transform_image: '@{AuxStandard}'
+    valid:
+        dataset:
+            name: ImagenameDataset
+        shuffle: false
+        transform_image: '@{AuxStandard}'
+
+AuxStandard:
+    Convert:
+        mode: RGB
+    ResizeBeforeCrop:
+        center_crop_size: '@{image_size}'
+        pre_size: '@{image_size}'
+    CenterCrop:
+        size: '@{image_size}'
+    ToTensor: {}
+    #Normalize:
+        #mean: [ 0.485, 0.456, 0.406 ]
+        #std: [ 0.229, 0.224, 0.225 ]
+
+network:
+    names: [main]
+
+    main:
+        name: gluon.resnet50_v1b
+        kwargs:
+            __clear__: true
+            zero_gamma: true
+            num_classes: '@{num_classes}'
+        init:
+            load_ckpt:
+                use: true
+                network_name: main
+                ckpt: '@{load_model_path}'
+
+metric:
+    train:
+        metric_names: [ce, top1, top5]
+    valid:
+        metric_names: [ce, top1, top5]
+    loss: ce
+    critical_metric_names: [train_top1]
+    speeds:
+        ce: fast
+    polars:
+        ce: min
+
+record:
+    __clear__: true
+    names: [train, eval]
+    train:
+        window_size: 100
+        sync_cuda: false
+    eval:
+        window_size: 100
+        sync_cuda: false

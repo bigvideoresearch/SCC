@@ -1,0 +1,108 @@
+eval_names: [valid_web, valid_img]
+num_classes: 500
+image_size: 224
+dataset_name: google500
+load_model_path: ../checkpoint/best_valid_web_top1.pth
+save_root: ../exploration/Google500/
+save_filename: baseline
+metric:
+    names: ['train', 'valid_web', 'valid_img']
+    critical_metric_names: [valid_web_top1, valid_img_top1]
+    valid_web: '@{metric.valid}'
+    valid_img: '@{metric.valid}'
+
+data:
+    names: [train, valid_web, valid_img]
+    train:
+        use_infolist: false
+        imglist_type: ListImglist
+        imglist_path: ../imglists/train_filelist_google_500_usable.txt
+        root: ../data/webvision/resized_images/
+        pseudo_root: ../pseudo/Food101N/Food101N_cnn_test_score
+        skip_broken: false
+        transform_extra:
+            SmoothSingleLabel:
+                epsilon: 0.0
+        transform_batch:
+            __clear__: true
+            TensorCuda: {}
+            BatchFancyPCA: {}
+            BatchNormalize:
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+
+    valid_web:
+        use_infolist: false
+        imglist_type: ListImglist
+        imglist_path: ../imglists/val_webvision_500_usable.txt
+        root: ../data/webvision/resized_images/
+        reader: DirectReader
+        skip_broken: false
+        dataset:
+            name: ImglistDatasetV2
+            kwargs:
+                maxlen: '@{data.maxlen}'
+                dummy_read: '@{data.dummy_read}'
+                dummy_size: '@{data.dummy_size}'
+        num_sub_epochs: 1
+        shuffle: false
+        pin_memory: false
+        drop_last: false
+        finegrain_factor: 1000
+        seed: '@{seed}'
+        local_batch_size: '@{local_batch_size}'
+        num_workers: '@{data.num_workers}'
+        transform_image: '@@{common_transform_image.ValidImageNet}'
+        transform_extra:
+            SmoothSingleLabel:
+                epsilon: 0.0
+                num_classes: '@{num_classes}'
+        transform_collate:
+            DefaultCollate: {}
+        transform_batch:
+            TensorCuda: {}
+            BatchNormalize:
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+
+
+    valid_img:
+        use_infolist: false
+        imglist_type: ListImglist
+        imglist_path: ../imglists/val_imagenet_500_usable.txt
+        root: ../data/imagenet/val
+        reader: DirectReader
+        skip_broken: false
+        dataset:
+            name: ImglistDatasetV2
+            kwargs:
+                maxlen: '@{data.maxlen}'
+                dummy_read: '@{data.dummy_read}'
+                dummy_size: '@{data.dummy_size}'
+        num_sub_epochs: 1
+        shuffle: false
+        pin_memory: false
+        drop_last: false
+        finegrain_factor: 1000
+        seed: '@{seed}'
+        local_batch_size: '@{local_batch_size}'
+        num_workers: '@{data.num_workers}'
+        transform_image: '@@{common_transform_image.ValidImageNet}'
+        transform_extra:
+            SmoothSingleLabel:
+                epsilon: 0.0
+                num_classes: '@{num_classes}'
+        transform_collate:
+            DefaultCollate: {}
+        transform_batch:
+            TensorCuda: {}
+            BatchNormalize:
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+network:
+    main:
+        init:
+            load_ckpt:
+                use: true
+                network_name: main
+                ckpt: '@{load_model_path}'

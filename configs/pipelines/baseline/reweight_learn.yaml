@@ -1,0 +1,27 @@
+pipeline: ReWeightLearnPipeline
+pipeline_setting: ReWeight_pretrain${pretrained}
+
+metric:
+    train:
+        metric_names: [rew_aol_bce, sce, top1, top5]
+    valid:
+        metric_names: [aol_bce, sce, avg_top1, avg_top5, top1, top5]
+    loss: rew_aol_bce
+    critical_metric_names: [valid_avg_top1]
+    speeds:
+        rew_aol_bce: fast
+        sce: fast
+        aol_bce: fast
+        avg_top1: slow
+        avg_top5: slow
+        top1: fast
+        top5: fast
+    polars:
+        rew_aol_bce: min
+        sce: min
+        aol_bce: min
+        avg_top1: max
+        avg_top5: max
+        top1: max
+        top5: max
+    ruler: ReweightRuler
